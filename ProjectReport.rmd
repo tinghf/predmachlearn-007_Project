@@ -1,20 +1,106 @@
 Practical Machine Learning - Prediction Assignment Writeup
 ==========================================================
 
+
 Objective
 ---------
-The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases. 
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases. 
+
 
 Gathering Data
 ---------------
+The following r package is required to execute this r code in this project.  
+
+```{r, message=F}
+# install.packages("caret")
+# install.packages("e1071")
+# install.packages("randomForest")
+# install.packages("rattle")
+
+library("caret")
+library("e1071")
+library("randomForest")
+library("rattle")
+```
+
+- Load csv data from files downloaded into project directory
+```{r, eval = F}
+# load data, noticed that we have a lot of #DIV/0!, we convert them to NA
+training <- read.csv("./pml-training.csv", row.names = 1, na.strings=c("#DIV/0!"))
+testing <- read.csv("./pml-testing.csv", row.names = 1, na.strings=c("#DIV/0!"))
+```
+
+- Identify zero/near zero variance predictors, prepare for removal
+```{r, eval = F}
+nzv_result <- nearZeroVar(training, saveMetrics = T)
+training <- training <- training[, !nzv_result$nzv]
+```
+
+- Remove variables with more than 80% NA values
+```{r, eval = F}
+nav <- sapply(colnames(training), function(x) if(sum(is.na(training[, x])) > 0.8*nrow(training)){return(T)}else{return(F)})
+training <- training[, !nav]
+```
+
+- Calculate correlations
+```{r, eval = F}
+cor <- abs(sapply(colnames(training[, -ncol(training)]), function(x) cor(as.numeric(training[, x]), as.numeric(training$classe), method = "spearman")))
+plot(training[, names(which.max(cor))], training[, names(which.max(cor[-which.max(cor)]))], col = training$classe, pch = 19, cex = 0.1, xlab = names(which.max(cor)), ylab = names(which.max(cor[-which.max(cor)])))
+```
+
+No strong correlation from predictors to classes was observed, so linear regression model is probably not suitable in this case. 
 
 
 Model Construction
 ------------------
+As linear regression is not suitable, I used a random forest model (provided in randomForest R package) as our model. It's consider as one of the top 2 performing algorithms so it should be good enough for the purpose of this assignment. The real drawback is it run really slow on my machine but machine time is what I have to spare. 
 
-Cross Validation
-----------------
+* Fit model with random forests algorithm and 10-fold __cross validation__ to predict `classe` with all other predictors.    
+         
+
+```{r, eval=F, cache=T}
+set.seed(123)
+rfFit <- train(classe ~ ., method = "rf", data = training, importance = T, trControl = trainControl(method = "cv", number = 10))
+
+rfFit
+plot(rfFit, ylim = c(0.9, 1))
+```
+
+```{r, eval=F, echo = F}
+imp <- varImp(rfFit)$importance
+imp$max <- apply(imp, 1, max)
+imp <- imp[order(imp$max, decreasing = T), ]
+```
+
+- The random forests algorithm generated a very accurate model with __accuracy close to 1__. 
+- The final random forests model contains 500 trees with 40 variables tried at each split. The five most important predictors in this model are "raw_timestamp_part_1", "roll_belt", "num_window", "pitch_forearm", "cvtd_timestamp30/11/2011 17:12". 
+```{r, eval=FALSE}
+rownames(imp)[1:5]
+```
+- Estimated __out of sample error rate__ for the random forests model is __0.04%__ as reported by this  model;
 
 
+Prediction   
+------------
+
+```{r, eval=F, message = F}
+# final model
+rfFit$finalModel
+# prediction
+prediction <- as.character(predict(rfFit, testing))
+```
+
+```{r, eval = F}
+# write prediction files
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_", i, ".txt")
+    write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, col.names = FALSE)
+  }
+}
+pml_write_files(prediction)
+
+```
 
 
