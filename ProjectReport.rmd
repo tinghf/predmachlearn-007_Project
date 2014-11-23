@@ -24,26 +24,26 @@ library("rattle")
 ```
 
 - Load csv data from files downloaded into project directory
-```{r, eval = F}
+```{r}
 # load data, noticed that we have a lot of #DIV/0!, we convert them to NA
 training <- read.csv("./pml-training.csv", row.names = 1, na.strings=c("#DIV/0!"))
 testing <- read.csv("./pml-testing.csv", row.names = 1, na.strings=c("#DIV/0!"))
 ```
 
 - Identify zero/near zero variance predictors, prepare for removal
-```{r, eval = F}
+```{r}
 nzv_result <- nearZeroVar(training, saveMetrics = T)
 training <- training <- training[, !nzv_result$nzv]
 ```
 
 - Remove variables with more than 80% NA values
-```{r, eval = F}
+```{r}
 nav <- sapply(colnames(training), function(x) if(sum(is.na(training[, x])) > 0.8*nrow(training)){return(T)}else{return(F)})
 training <- training[, !nav]
 ```
 
 - Calculate correlations
-```{r, eval = F}
+```{r}
 cor <- abs(sapply(colnames(training[, -ncol(training)]), function(x) cor(as.numeric(training[, x]), as.numeric(training$classe), method = "spearman")))
 plot(training[, names(which.max(cor))], training[, names(which.max(cor[-which.max(cor)]))], col = training$classe, pch = 19, cex = 0.1, xlab = names(which.max(cor)), ylab = names(which.max(cor[-which.max(cor)])))
 ```
@@ -58,7 +58,7 @@ As linear regression is not suitable, I used a random forest model (provided in 
 * Fit model with random forests algorithm and 10-fold __cross validation__ to predict `classe` with all other predictors.    
          
 
-```{r, eval=F, cache=T}
+```{r, cache=T}
 set.seed(123)
 rfFit <- train(classe ~ ., method = "rf", data = training, importance = T, trControl = trainControl(method = "cv", number = 10))
 
@@ -66,7 +66,7 @@ rfFit
 plot(rfFit, ylim = c(0.9, 1))
 ```
 
-```{r, eval=F, echo = F}
+```{r, echo = F}
 imp <- varImp(rfFit)$importance
 imp$max <- apply(imp, 1, max)
 imp <- imp[order(imp$max, decreasing = T), ]
@@ -74,7 +74,7 @@ imp <- imp[order(imp$max, decreasing = T), ]
 
 - The random forests algorithm generated a very accurate model with __accuracy close to 1__. 
 - The final random forests model contains 500 trees with 40 variables tried at each split. The five most important predictors in this model are "raw_timestamp_part_1", "roll_belt", "num_window", "pitch_forearm", "cvtd_timestamp30/11/2011 17:12". 
-```{r, eval=FALSE}
+```{r}
 rownames(imp)[1:5]
 ```
 - Estimated __out of sample error rate__ for the random forests model is __0.04%__ as reported by this  model;
@@ -83,7 +83,7 @@ rownames(imp)[1:5]
 Prediction   
 ------------
 
-```{r, eval=F, message = F}
+```{r, message = F}
 # final model
 rfFit$finalModel
 # prediction
