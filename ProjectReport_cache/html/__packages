@@ -1,13 +1,7 @@
 base
 caret
-datasets
 e1071
 ggplot2
-graphics
-grDevices
 lattice
-methods
 randomForest
 rattle
-stats
-utils
